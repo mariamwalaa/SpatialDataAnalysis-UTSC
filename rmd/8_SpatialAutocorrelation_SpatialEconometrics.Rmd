@@ -33,11 +33,23 @@ library(RColorBrewer)
 
 # Part 1: Spatial Autocorrelation
 
-This part will use the U.S. Census 2010 data on the Hispanic population in Salt Lake County, estimated at the census tract level of aggregation. The shape file is projected into U.T.M. Zone 12 coordinates (i.e. coordinates measured in meters). The shape file of census tracts will be loaded into a spatial object below.
+This part will use the U.S. Census 2010 data on the Hispanic population in Salt Lake
+County, estimated at the census tract level of aggregation. The shape file is projected
+into U.T.M. Zone 12 coordinates (i.e. coordinates measured in meters). The shape file of
+census tracts will be loaded into a spatial object below.
 
 ### Loading and Plotting
 
-The shape file of census tracts in Salt Lake Country has 32 fields and 211 features.  A choropleth map of the HIS_PCT variable is created below using the quantile classification method, a sequential color scheme, and 5 classes. The HIS_PCT variable is the proportion of Hispanic people in each census tract. The quantile classification method bins the variable of interest into groups of equal size and is chosen for this map as it seems to visually display more variation than Jenks natural breaks or standard deviation. The sequential color scheme is chosen since it makes sense to use a lighter value to represent lower proportions of Hispanic people within a census tract and a higher value to represent higher proportions of Hispanic people within a census tract. The number of classes chosen is 5.
+The shape file of census tracts in Salt Lake Country has 32 fields and 211 features.  A
+choropleth map of the HIS_PCT variable is created below using the quantile classification
+method, a sequential color scheme, and 5 classes. The HIS_PCT variable is the proportion
+of Hispanic people in each census tract. The quantile classification method bins the
+variable of interest into groups of equal size and is chosen for this map as it seems to
+visually display more variation than Jenks natural breaks or standard deviation. The
+sequential color scheme is chosen since it makes sense to use a lighter value to represent
+lower proportions of Hispanic people within a census tract and a higher value to represent
+higher proportions of Hispanic people within a census tract. The number of classes chosen
+is 5.
 
 ```{r}
 SLCCT <- readOGR(dsn = "../data/tutorial_saltlake", layer = "SLC_CT2010")
@@ -70,11 +82,32 @@ hist(x = SLCCT$HIS_PCT, breaks = 60, xlab = "Proportion of Hispanic People",
 summary(SLCCT$HIS_PCT)
 ```
 
-The histogram of the distribution of proportion of Hispanic people in each census tract displays a right-tailed distribution showing that majority of census tracts have 10% or less Hispanic people within a census tract, with some outlying census tracts with more than 50% proportion of Hispanic people in the census tract. The summary statistics table further supports the plot of the right-tailed, non-symmetric distribution of proportions of Hispanic people above. Both the histogram and descriptive statistics explain the spatial patterns that are seen in the map of the Hispanic population in Salt Lake County. Specifically, majority of the census tracts have less than 30% proportions of Hispanic people, and this is evident in the choropleth map as only a handful of census tracts belong to the largest class interval. In terms of spatial patterns, there seems to be a clustering of census tracts that are of the same class interval north west and south west of Salt Lake County, and more dispersion at the centre of the map. All of the census tracts that are east of Salt Lake County fall into the smallest class interval of 1% to 6% Hispanic people.
+The histogram of the distribution of proportion of Hispanic people in each census tract
+displays a right-tailed distribution showing that majority of census tracts have 10% or
+less Hispanic people within a census tract, with some outlying census tracts with more
+than 50% proportion of Hispanic people in the census tract. The summary statistics table
+further supports the plot of the right-tailed, non-symmetric distribution of proportions
+of Hispanic people above. Both the histogram and descriptive statistics explain the
+spatial patterns that are seen in the map of the Hispanic population in Salt Lake County.
+Specifically, majority of the census tracts have less than 30% proportions of Hispanic
+people, and this is evident in the choropleth map as only a handful of census tracts
+belong to the largest class interval. In terms of spatial patterns, there seems to be a
+clustering of census tracts that are of the same class interval north west and south west
+of Salt Lake County, and more dispersion at the centre of the map. All of the census
+tracts that are east of Salt Lake County fall into the smallest class interval of 1% to 6%
+Hispanic people.
 
 ### Working with Neighbor Lists
 
-The relationships between the census tracts can be explored in order to measure spatial autocorrelation using neighbor graphs and weights. This is a two-step process that consists of first choosing the neighbor criterion that needs to be satisfied and then choosing the method to assign weights to the identified neighbor links. For the first step, the spatial object storing the census tract geographic data has been used in the process of creating graphs of two different neighbor criterion types (Rook and Queen).The Queen neighbors list is expected to contain more links since the queen condition can be met by a single shared boundary point, while the rook condition can only be met by more than one shared point.
+The relationships between the census tracts can be explored in order to measure spatial
+autocorrelation using neighbor graphs and weights. This is a two-step process that
+consists of first choosing the neighbor criterion that needs to be satisfied and then
+choosing the method to assign weights to the identified neighbor links. For the first
+step, the spatial object storing the census tract geographic data has been used in the
+process of creating graphs of two different neighbor criterion types (Rook and Queen).The
+Queen neighbors list is expected to contain more links since the queen condition can be
+met by a single shared boundary point, while the rook condition can only be met by more
+than one shared point.
 
 ```{r, fig.width=10, fig.height=10}
 # Retrieve coordinates from spatial object.
@@ -106,15 +139,27 @@ summary(card(SLCnb_rook))
 summary(card(SLCnb_queen))
 ```
 
-The summary statistics of the Rook and Queen neighbors shows that none of the methods have a normal distribution, and the Queen neighbor list contains more links as expected. This has been achieved using the helper function card which provides the cardinality of the neighbor set. The neighbor map shows that there are many more neighbor links through the queen condition than the rook condition. This is especially the case in areas where there are smaller census tracts (north east and north west of the center of the map). This can be confirmed by the number of nonzero links given by summary(SLCnb_queen), which show there are about 300 more links using the queen condition. 
+The summary statistics of the Rook and Queen neighbors shows that none of the methods have
+a normal distribution, and the Queen neighbor list contains more links as expected. This
+has been achieved using the helper function card which provides the cardinality of the
+neighbor set. The neighbor map shows that there are many more neighbor links through the
+queen condition than the rook condition. This is especially the case in areas where there
+are smaller census tracts (north east and north west of the center of the map). This can
+be confirmed by the number of nonzero links given by summary(SLCnb_queen), which show
+there are about 300 more links using the queen condition.
 
 ### Creating Weight Matrices from Neighbor Lists
 
-For the second step, matrices of weights have been created for the neighbor lists. These weight matrices are contained in a listw object which is made up of the following three attributes: 
+For the second step, matrices of weights have been created for the neighbor lists. These
+weight matrices are contained in a listw object which is made up of the following three
+attributes:
 
 * The style of the weight matrix, which can be 'B' (binary), 'W' (row-normalized), etc.
-* The input neighbors list, which is a list of values representing the number of neighbors for each region
-* The weights for each neighbor link based on the chosen style, which is a list of lists where each sublist contains weights for that region (if using 'W' style, each region will have different weights based on the number of neighbors the region has)
+* The input neighbors list, which is a list of values representing the number of neighbors
+for each region
+* The weights for each neighbor link based on the chosen style, which is a list of lists
+where each sublist contains weights for that region (if using 'W' style, each region will
+have different weights based on the number of neighbors the region has)
 
 ```{r}
 # Create binary weight matrices
@@ -131,7 +176,12 @@ SLCnb_rook_B$weights[1]
 SLCnb_rook_W$weights[1]
 ```
 
-The weights object is a list of lists where each sub-list contains all the weights for a census tract. For example, the first observation has 9 neighbor weights using the queen condition and 6 neighbor weights using the rook condition. The weights for each neighbor of a single observation or census tract are represented as 1s using the binary weighting scheme and as decimals using the row-normalized weighting scheme. The values in the row-normalized matrix are based on the number of neighbors for that observation.
+The weights object is a list of lists where each sub-list contains all the weights for a
+census tract. For example, the first observation has 9 neighbor weights using the queen
+condition and 6 neighbor weights using the rook condition. The weights for each neighbor
+of a single observation or census tract are represented as 1s using the binary weighting
+scheme and as decimals using the row-normalized weighting scheme. The values in the
+row-normalized matrix are based on the number of neighbors for that observation.
 
 ### Global Moran's I
 
@@ -143,18 +193,29 @@ print(moran.test(SLCCT$HIS_PCT, listw = SLCnb_queen_B))
 print(moran.test(SLCCT$HIS_PCT, listw = SLCnb_queen_W))
 ```
 
-Global Moran's I is the measure of spatial autocorrelation for the entire area of study. All Moran's I values are statistically significant so there is spatial autocorrelation for crime levels in Columbus, Ohio. There is a higher Moran's I value for the weight matrices using the row-normalized weighting scheme compared to the weight matrices using the binary weighting scheme.
+Global Moran's I is the measure of spatial autocorrelation for the entire area of study.
+All Moran's I values are statistically significant so there is spatial autocorrelation for
+crime levels in Columbus, Ohio. There is a higher Moran's I value for the weight matrices
+using the row-normalized weighting scheme compared to the weight matrices using the binary
+weighting scheme.
 
 ```{r, fig.width=10, fig.height=6}
 # Compute and plot Moran's I for different distances
 plot(correlog(coords, SLCCT$HIS_PCT, method = "Moran"))
 ```
 
-This is a plot of global Moran's I values for the percentage of Hispanic people in each census tract using different distances. The plot highlights the distances for which the Moran's I statistic is statistically significant. The plot shows that a distance class around 2000 provides the largest Moran's I statistic of above 0.6, while larger distance classes result in less autocorrelation.
+This is a plot of global Moran's I values for the percentage of Hispanic people in each
+census tract using different distances. The plot highlights the distances for which the
+Moran's I statistic is statistically significant. The plot shows that a distance class
+around 2000 provides the largest Moran's I statistic of above 0.6, while larger distance
+classes result in less autocorrelation.
 
 # Part 2: Spatial Econometrics
 
-This part will use a crime data set pertaining to planning neighborhoods in Columbus, Ohio (1980). The dependent variable of interest is CRIME, the number of residential burglaries and vehicle thefts per 1000 households. The two independent variables are HOVAL, the median housing value in $1000's, and INC, the median household income in \$1000's.
+This part will use a crime data set pertaining to planning neighborhoods in Columbus, Ohio
+(1980). The dependent variable of interest is CRIME, the number of residential burglaries
+and vehicle thefts per 1000 households. The two independent variables are HOVAL, the
+median housing value in $1000's, and INC, the median household income in \$1000's.
 
 ### Load and Describe the Data set
 
@@ -214,11 +275,27 @@ title(main = paste("Median Household Income in $1000's", "in Columbus, Ohio (198
 legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
 ```
 
-The plot of pairwise correlations shows that crime is negatively correlated with both median household income and median housing value, while median household income and median housing value are positively correlated. The boxplots show that the distribution of crime levels is normal while median household income is slightly right-skewed with an outlier and median housing value is also right-skewed but has more outliers.
+The plot of pairwise correlations shows that crime is negatively correlated with both
+median household income and median housing value, while median household income and median
+housing value are positively correlated. The boxplots show that the distribution of crime
+levels is normal while median household income is slightly right-skewed with an outlier
+and median housing value is also right-skewed but has more outliers.
 
-* In the crimes map, there are some clusters of census tracts belonging to the same class interval. This is especially the case at the centre of the map for the largest class interval, and also the case to the south for the small class interval, and also to the middle class interval. This indicates that the proportion of crime in a census tract may determine the proportion of crime in nearby census tracts. 
-* In the median housing value map, there are few clusters of census tracts belonging to the same class interval. There are two clusters east of the map where surrounding census tracts belong to the same class, but there is dispersion for the remainder of the map. This indicates that the proportion of median housing value in a census tract may not determine well what the proportion of neighboring census tracts is.
-* In the median household income map, there are some clusters of census tracts belonging to the same class interval. This is the case for multiple areas in the map, especially south east and south west of the map for the larger class intervals. This indicates that the median household income interval a census tract belongs to may determine the median household income class interval of nearby census tracts.
+* In the crimes map, there are some clusters of census tracts belonging to the same class
+interval. This is especially the case at the centre of the map for the largest class
+interval, and also the case to the south for the small class interval, and also to the
+middle class interval. This indicates that the proportion of crime in a census tract may
+determine the proportion of crime in nearby census tracts.
+* In the median housing value map, there are few clusters of census tracts belonging to
+the same class interval. There are two clusters east of the map where surrounding census
+tracts belong to the same class, but there is dispersion for the remainder of the map.
+This indicates that the proportion of median housing value in a census tract may not
+determine well what the proportion of neighboring census tracts is.
+* In the median household income map, there are some clusters of census tracts belonging
+to the same class interval. This is the case for multiple areas in the map, especially
+south east and south west of the map for the larger class intervals. This indicates that
+the median household income interval a census tract belongs to may determine the median
+household income class interval of nearby census tracts.
     
 ### Perform Basic Spatial Statistics
 
@@ -250,7 +327,10 @@ Here are the summary statistics for the Queen neighbor graph:
 * The Global Moran's I statistic for CRIME is 0.500188557 and it is strongly statistically significant.
 * The Global Moran's I statistic for HOVAL is 0.180093114 and it is statistically significant.
 * The Global Moran's I statistic for INC is 0.415628778 and it is strongly statistically significant.
-* The CRIME variable is most spatially autocorrelated of all three variables with around 0.5 Moran's I autocorrelation, followed by INC with around 0.42 Moran's I autocorrelation. HOVAL has a lower autocorrelation of around 0.18. These autocorrelation values seem reasonable given the map patterns seen above. 
+* The CRIME variable is most spatially autocorrelated of all three variables with around
+0.5 Moran's I autocorrelation, followed by INC with around 0.42 Moran's I autocorrelation.
+HOVAL has a lower autocorrelation of around 0.18. These autocorrelation values seem
+reasonable given the map patterns seen above.
 
 ### Create an OLS Model for Crime
 
@@ -267,16 +347,30 @@ moran.test(resid(ols_model), columbusnb_queen_W)
 Here is an interpretation of the OLS model output:
 
 * Here is the regression formula: CRIME = -1.5973\*INC -0.2739*HOVAL + 68.6190
-    * For an increase of 1 unit in INCOME, we expect to find a decrease of $1.5973 (in thousands) in median household income.
-    * For an increase of 1 unit in CRIME, we expect to find a decrease of $0.2739 (in thousands) in median housing value.
-* The goodness of fit (Adjusted R^2) is 0.5329 which means that around 53% of the data is explained well by this model.
-* The Moran's I measure is computed for the OLS model's residuals in order to see if the OLS model's residuals violate the regression assumption of being independent. Based on the Moran's I statistic, the residuals of the model are have a statistically significant autocorrelation of 0.222109407. This means it is possible that there is a spatial dependence between observations, so the observations may not be independently distributed. 
+    * For an increase of 1 unit in income, we expect to find a decrease of 1.5973 in crime.
+    * For an increase of 1 unit in housing value, we expect to find a decrease of 0.2739 in crime.
+* The goodness of fit (Adjusted R^2) is 0.5329 which means that around 53% of the data is
+explained well by this model.
+* The Moran's I measure is computed for the OLS model's residuals in order to see if the
+OLS model's residuals violate the regression assumption of being independent. Based on the
+Moran's I statistic, the residuals of the model are have a statistically significant
+autocorrelation of 0.222109407. This means it is possible that there is a spatial
+dependence between observations, so the observations may not be independently distributed.
 
-Based on all of these results, the model may not be valid as a statistically significant Moran's I indicates that there may be spatial dependence which will lead to biased coefficients and underestimated standard error. Therefore, possible options for creating a valid model given these results are estimating a spatial lag and spatial error model. The difference between a spatial lag model and a spatial error model is that the spatial lag model assumes that the dependent variable has spatial dependence while the spatial error model assumes that there may be some unknown dependence in the error.
+Based on all of these results, the model may not be valid as a statistically significant
+Moran's I indicates that there may be spatial dependence which will lead to biased
+coefficients and underestimated standard error. Therefore, possible options for creating a
+valid model given these results are estimating a spatial lag and spatial error model. The
+difference between a spatial lag model and a spatial error model is that the spatial lag
+model assumes that the dependent variable has spatial dependence while the spatial error
+model assumes that there may be some unknown dependence in the error.
 
 ### Create a Spatially Lagged Dependent Model
 
-This part will create a spatially lagged dependent model. A spatial lag will be created and passed to the OLS model. This is not an appropriate method of estimation, but it will be used to compare the differences between the OLS with lag and maximum likelihood estimation with lag.
+This part will create a spatially lagged dependent model. A spatial lag will be created
+and passed to the OLS model. This is not an appropriate method of estimation, but it will
+be used to compare the differences between the OLS with lag and maximum likelihood
+estimation with lag.
 
 ```{r}
 
@@ -311,13 +405,24 @@ moran.test(resid(spatial_lag_model), columbusnb_queen_W)
 
 Here is a description of the differences between the statistics of the three models above:
 
-* The coefficients of the median housing value (HOVAL) and the median household income (INC) are negative in all three models. These coefficients are similar for the models with a spatial lag (OLS and Maximum Likelihood). The coefficients of the OLS without a lag are lower. All three models have coefficient estimates that are statistically significant.
-* Both OLS models (with a lag and without a lag) have an adjusted R^2 larger than 50%. The OLS model with a lag has a larger adjusted R^2.
-* The spatial autocorrelation of the residuals is around 0.22 for the OLS with no lag and around -0.02 for the two models with a lag (both OLS and Maximum Likelihood).
-* The OLS model with no lag differs from the OLS model with a lag in that the coefficients for the model with no lag are much smaller.
-* The OLS model with a lag differs from the Maximum Likelihood model with a lag in that the coefficient estimates for the Maximum Likelihood model are more statistically significant overall, but the coefficient estimates themselves for both models are about the same.
+* The coefficients of the median housing value (HOVAL) and the median household income
+(INC) are negative in all three models. These coefficients are similar for the models with
+a spatial lag (OLS and Maximum Likelihood). The coefficients of the OLS without a lag are
+lower. All three models have coefficient estimates that are statistically significant.
+* Both OLS models (with a lag and without a lag) have an adjusted R^2 larger than 50%. The
+OLS model with a lag has a larger adjusted R^2.
+* The spatial autocorrelation of the residuals is around 0.22 for the OLS with no lag and
+around -0.02 for the two models with a lag (both OLS and Maximum Likelihood).
+* The OLS model with no lag differs from the OLS model with a lag in that the coefficients
+for the model with no lag are much smaller.
+* The OLS model with a lag differs from the Maximum Likelihood model with a lag in that
+the coefficient estimates for the Maximum Likelihood model are more statistically
+significant overall, but the coefficient estimates themselves for both models are about
+the same.
 
-An OLS model with a spatial lag is not an appropriate model. In this case, the spatial lag model has coefficient estimates that are more statistically significant than the coefficient estimates for the OLS with a lag.
+An OLS model with a spatial lag is not an appropriate model. In this case, the spatial lag
+model has coefficient estimates that are more statistically significant than the
+coefficient estimates for the OLS with a lag.
 
 ### Create a Spatially Lagged Error Model for Crime
 
@@ -331,7 +436,18 @@ summary(error_model)
 moran.test(resid(error_model), columbusnb_queen_W)
 ```
 
-A spatially lagged error model assumes that the error term has spatial dependence. Compared to the OLS model without spatial lag, the spatial error model also has negative coefficients but they are slightly different from the coefficients for the OLS model with no spatial lag. Specifically, the OLS with no lag estimates a larger decrease in income but a smaller decrease in housing value compared the spatially lagged error model. The coefficients for the spatially lagged error model are more statistically significant overall compared to the OLS with no lag. Compared to the spatial error model, the spatial lag model estimates a smaller decrease in income and housing value with slightly more statistical significance than the spatial error model. There seems to be a small difference in the coefficients for the spatial error model and the OLS with no lag, which may mean that there is no spatial dependence in the error term and it may not be a valid model.
+A spatially lagged error model assumes that the error term has spatial dependence.
+Compared to the OLS model without spatial lag, the spatial error model also has negative
+coefficients but they are slightly different from the coefficients for the OLS model with
+no spatial lag. Specifically, the OLS with no lag estimates a larger decrease in income
+but a smaller decrease in housing value compared the spatially lagged error model. The
+coefficients for the spatially lagged error model are more statistically significant
+overall compared to the OLS with no lag. Compared to the spatial error model, the spatial
+lag model estimates a smaller decrease in income and housing value with slightly more
+statistical significance than the spatial error model. There seems to be a small
+difference in the coefficients for the spatial error model and the OLS with no lag, which
+may mean that there is no spatial dependence in the error term and it may not be a valid
+model.
 
 ### Choose Between Several Valid Models
 
