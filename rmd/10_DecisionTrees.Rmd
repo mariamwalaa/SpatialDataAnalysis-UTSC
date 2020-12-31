@@ -1,0 +1,122 @@
+---
+title: 'Decision Trees'
+author: "Mariam Walaa"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Reference: https://urbanspatial.github.io/classifying_satellite_imagery_in_R/
+
+## Load Libraries
+
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(raster)
+library(rasterVis)
+library(rpart)
+library(caret)
+library(mapedit)
+library(mapview)
+library(sf)
+library(rattle)
+```
+
+## Prepare Data
+
+```{r}
+band1 <- raster("./data/band1.tif")
+band2 <- raster("./data/band2.tif")
+band3 <- raster("./data/band3.tif")
+band4 <- raster("./data/band4.tif")
+band5 <- raster("./data/band5.tif")
+band6 <- raster("./data/band6.tif")
+band7 <- raster("./data/band7.tif")
+band8 <- raster("./data/band8.tif")
+band9 <- raster("./data/band9.tif")
+band10 <- raster("./data/band10.tif")
+band11 <- raster("./data/band11.tif")
+
+band8 <- aggregate(band8, fact = 2)
+
+image <- stack(band1, band2, band3, band4, band5,
+               band6, band7, band8, band9, band10, band11)
+```
+
+
+## Create Training Data
+
+```{r}
+points_l <- viewRGB(image, r = 4, g = 3, b = 2) %>%
+  editMap()
+
+developed <- points_l$finished$geometry %>% 
+  st_sf() %>% 
+  mutate(class = "developed", id = 1)
+
+
+points_u <- viewRGB(image, r = 4, g = 3, b = 2) %>%
+  editMap()
+
+undeveloped <- points_u$finished$geometry %>%
+  st_sf() %>%
+  mutate(class = "undeveloped", id = 2)
+
+
+points_w <- viewRGB(image, r = 4, g = 3, b = 2) %>%
+  editMap()
+
+water <- points_w$finished$geometry %>%
+  st_sf() %>%
+  mutate(class = "water", id = 3)
+```
+
+## Store as Data Frame
+
+```{r}
+training_points_sf <- rbind(developed, undeveloped, water)
+training_points <- as(training_points_sf, 'Spatial')
+df <- raster::extract(image, training_points) %>%
+  round()
+df <- data.frame(training_points$class, df)
+
+df %>%
+  group_by(training_points.class) %>%
+  summarise(count = n())
+```
+
+## Build Decision tree
+
+```{r}
+model.class <- rpart(as.factor(training_points.class) ~., 
+                     data = df, 
+                     method = 'class') 
+
+fancyRpartPlot(model = model.class,
+               main = "Decision Tree to Classify Land Use")
+
+predict(object = image,
+        model.class,
+        type = 'class') %>% 
+  ratify() -> predictions
+
+levels(predictions) <- levels(predictions)[[1]] %>% 
+  mutate(legend = c("Developed Land", "Undeveloped Land", "Water"))
+
+levelplot(predictions,
+          maxpixels = 1e6,
+          col.regions = c('burlywood', 'darkgreen', 'blue'),
+          scales = list(draw = FALSE),
+          main = "Predicted Classification of Land Use on Study Area")
+
+test <- raster::extract(predictions, training_points) %>% 
+  as.data.frame() %>%
+  rename(id = ".")
+
+testProbs <- data.frame(obs = as.factor(training_points$id),
+  pred = as.factor(test$id)) %>% 
+  mutate(correct = ifelse(obs == pred, 1, 0))
+
+confusionMatrix(testProbs$obs, testProbs$pred)
+```
+

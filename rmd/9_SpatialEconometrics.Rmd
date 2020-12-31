@@ -1,0 +1,270 @@
+---
+title: 'Spatial Econometrics'
+author: "Mariam Walaa"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r warning = FALSE, message = FALSE}
+library(rgdal)
+library(pgirmess)
+library(spdep)
+library(spatialreg)
+library(classInt)
+library(RColorBrewer)
+```
+
+This part will use a crime data set pertaining to planning neighborhoods in Columbus, Ohio
+(1980). The dependent variable of interest is CRIME, the number of residential burglaries
+and vehicle thefts per 1000 households. The two independent variables are HOVAL, the
+median housing value in $1000's, and INC, the median household income in \$1000's.
+
+### Load and Describe the Data set
+
+```{r}
+columbus <- readOGR(dsn = "../data/tutorial_columbus", layer = "columbus")
+```
+
+The shape file of census tracts in Columbus, Ohio has 20 fields and 49 features.
+
+```{r, fig.width=10, fig.height=6}
+
+# Convert to data frame for univariate and bivariate plots below
+crime_df <- as.data.frame(cbind(columbus$CRIME,columbus$INC, columbus$HOVAL))
+colnames(crime_df) <- c( 'CRIME', 'INC', 'HOVAL')
+
+# Plot pairwise correlations
+plot(crime_df)
+
+# Plot quantiles for each variable
+boxplot(crime_df, main = "Boxplots of Crime, Median Income & Median Housing Value in Columbus, Ohio (1980)")
+```
+
+```{r, fig.width=10, fig.height=4}
+par(mfrow = c(1,3))
+
+# Define the number of classes.
+nclasses <- 5
+
+# Define the classification method. Available methods include: "equal", "sd", "quantile", "kmeans", "jenks"
+class <- classIntervals(var = columbus$CRIME, n = nclasses, style = "quantile", dataPrecision = 0)
+
+# Set color palette.
+colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "Reds"), digits = 3)
+
+# Plot the map.
+plot(columbus, col = colcode, pch = 19, axes = T, cex = 1.5)
+
+# Add a title.
+title(main = paste("Home Burglaries/Thefts Per 1000 Households",
+                 "in Columbus, Ohio (1980)", sep = "\n"))
+
+# Add a legend.
+legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
+
+# Plot a second map for median housing value
+class <- classIntervals(var = columbus$HOVAL, n = nclasses, style = "quantile", dataPrecision = 0)
+colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "Oranges"), digits = 3)
+plot(columbus, col = colcode, pch = 19, axes = T, cex = 1.5)
+title(main = paste("Median Housing Value in $1000's", "in Columbus, Ohio (1980)", sep = "\n"))
+legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
+
+# Plot a third map for median household income
+class <- classIntervals(var = columbus$INC, n = nclasses, style = "quantile", dataPrecision = 0)
+colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "Greens"), digits = 3)
+plot(columbus, col = colcode, pch = 19, axes = T, cex = 1.5)
+title(main = paste("Median Household Income in $1000's", "in Columbus, Ohio (1980)", sep = "\n"))
+legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
+```
+
+The plot of pairwise correlations shows that crime is negatively correlated with both
+median household income and median housing value, while median household income and median
+housing value are positively correlated. The boxplots show that the distribution of crime
+levels is normal while median household income is slightly right-skewed with an outlier
+and median housing value is also right-skewed but has more outliers.
+
+* In the crimes map, there are some clusters of census tracts belonging to the same class
+interval. This is especially the case at the centre of the map for the largest class
+interval, and also the case to the south for the small class interval, and also to the
+middle class interval. This indicates that the proportion of crime in a census tract may
+determine the proportion of crime in nearby census tracts.
+* In the median housing value map, there are few clusters of census tracts belonging to
+the same class interval. There are two clusters east of the map where surrounding census
+tracts belong to the same class, but there is dispersion for the remainder of the map.
+This indicates that the proportion of median housing value in a census tract may not
+determine well what the proportion of neighboring census tracts is.
+* In the median household income map, there are some clusters of census tracts belonging
+to the same class interval. This is the case for multiple areas in the map, especially
+south east and south west of the map for the larger class intervals. This indicates that
+the median household income interval a census tract belongs to may determine the median
+household income class interval of nearby census tracts.
+    
+### Perform Basic Spatial Statistics
+
+```{r}
+
+# Create a queen contiguity neighbor list.
+columbusnb_queen <- poly2nb(pl = columbus)
+
+# Create a row-normalized weight matrix.
+columbusnb_queen_W <- nb2listw(columbusnb_queen, style = "W")
+
+# Compute Global Moran's I
+moran_queen_crime <- moran.test(x = columbus$CRIME, listw = columbusnb_queen_W)
+moran_queen_hoval <- moran.test(x = columbus$HOVAL, listw = columbusnb_queen_W)
+moran_queen_inc <- moran.test(x = columbus$INC, listw = columbusnb_queen_W)
+
+summary(columbusnb_queen_W)
+print(moran_queen_crime)
+print(moran_queen_hoval)
+print(moran_queen_inc)
+
+```
+
+Here are the summary statistics for the Queen neighbor graph:
+
+* The average number of neighbor links for each zone is 4.816327.
+* The minimum number of connections made in the neighbor list (i.e., minimum neighbors) is 2.
+* The maximum number of connections made in the neighbor list (i.e., maximum neighbors) is 10.
+* The Global Moran's I statistic for CRIME is 0.500188557 and it is strongly statistically significant.
+* The Global Moran's I statistic for HOVAL is 0.180093114 and it is statistically significant.
+* The Global Moran's I statistic for INC is 0.415628778 and it is strongly statistically significant.
+* The CRIME variable is most spatially autocorrelated of all three variables with around
+0.5 Moran's I autocorrelation, followed by INC with around 0.42 Moran's I autocorrelation.
+HOVAL has a lower autocorrelation of around 0.18. These autocorrelation values seem
+reasonable given the map patterns seen above.
+
+### Create an OLS Model for Crime
+
+```{r}
+
+# Estimate an OLS model without lag
+ols_model <- lm(columbus$CRIME ~ columbus$INC + columbus$HOVAL)
+summary(ols_model)
+
+# Compute Moran's I for the OLS model's residuals
+moran.test(resid(ols_model), columbusnb_queen_W)
+```
+
+Here is an interpretation of the OLS model output:
+
+* Here is the regression formula: CRIME = -1.5973\*INC -0.2739*HOVAL + 68.6190
+    * For an increase of 1 unit in income, we expect to find a decrease of 1.5973 in crime.
+    * For an increase of 1 unit in housing value, we expect to find a decrease of 0.2739 in crime.
+* The goodness of fit (Adjusted R^2) is 0.5329 which means that around 53% of the data is
+explained well by this model.
+* The Moran's I measure is computed for the OLS model's residuals in order to see if the
+OLS model's residuals violate the regression assumption of being independent. Based on the
+Moran's I statistic, the residuals of the model are have a statistically significant
+autocorrelation of 0.222109407. This means it is possible that there is a spatial
+dependence between observations, so the observations may not be independently distributed.
+
+Based on all of these results, the model may not be valid as a statistically significant
+Moran's I indicates that there may be spatial dependence which will lead to biased
+coefficients and underestimated standard error. Therefore, possible options for creating a
+valid model given these results are estimating a spatial lag and spatial error model. The
+difference between a spatial lag model and a spatial error model is that the spatial lag
+model assumes that the dependent variable has spatial dependence while the spatial error
+model assumes that there may be some unknown dependence in the error.
+
+### Create a Spatially Lagged Dependent Model
+
+This part will create a spatially lagged dependent model. A spatial lag will be created
+and passed to the OLS model. This is not an appropriate method of estimation, but it will
+be used to compare the differences between the OLS with lag and maximum likelihood
+estimation with lag.
+
+```{r}
+
+# Create a new variable that contains the spatially lagged levels of crime for each zone
+wy <- lag(columbusnb_queen_W, columbus$CRIME)
+
+# Specify a new OLS model for crime as a function of the lagged crime levels variable
+ols_lag_model <- lm(columbus$CRIME ~ wy + columbus$INC + columbus$HOVAL)
+summary(ols_lag_model)
+
+# Compute Moran's I for the OLS lag model's residuals
+moran.test(resid(ols_lag_model), columbusnb_queen_W)
+
+# Estimate a spatial lag model with the same predictors as above.
+spatial_lag_model <- lagsarlm(columbus$CRIME ~ wy + columbus$INC + columbus$HOVAL, listw = columbusnb_queen_W)
+summary(spatial_lag_model)
+
+# Compute Moran's I for the spatial lag models' residuals
+moran.test(resid(spatial_lag_model), columbusnb_queen_W)
+
+```
+
+|                         | OLS No Lag  |                      | OLS With Lag |          | Maximum Likelihood with Lag |            |
+|-------------------------|-------------|----------------------|--------------|----------|-----------------------------|------------|
+|                         | Coefficient | p-value              | Coefficient  | p-value  | Coefficient                 | p-value    |
+| Constant                | 68.619      | < 0.0000000000000002 | 38.78334     | 0.000141 | 38.783341                   | 0.00002053 |
+| INC                     | -1.5973     | 0.0000183            | -0.88617     | 0.017064 | -0.886175                   | 0.009785   |
+| HOVAL                   | -0.2739     | 0.0109               | -0.26408     | 0.006245 | -0.264084                   | 0.002835   |
+| WCRIME                  | NA          | NA                   | 0.54876      | 0.000815 | 0.548763                    | 0.008847   |
+| Adj-R2                  | 0.5329      | NA                   | 0.6288       | NA       | NA                          | NA         |
+| Moran's I for residuals | 0.222109407 | 0.003999             | -0.01840567  | 0.4891   | -0.01840567                 | 0.4891     |
+
+Here is a description of the differences between the statistics of the three models above:
+
+* The coefficients of the median housing value (HOVAL) and the median household income
+(INC) are negative in all three models. These coefficients are similar for the models with
+a spatial lag (OLS and Maximum Likelihood). The coefficients of the OLS without a lag are
+lower. All three models have coefficient estimates that are statistically significant.
+* Both OLS models (with a lag and without a lag) have an adjusted R^2 larger than 50%. The
+OLS model with a lag has a larger adjusted R^2.
+* The spatial autocorrelation of the residuals is around 0.22 for the OLS with no lag and
+around -0.02 for the two models with a lag (both OLS and Maximum Likelihood).
+* The OLS model with no lag differs from the OLS model with a lag in that the coefficients
+for the model with no lag are much smaller.
+* The OLS model with a lag differs from the Maximum Likelihood model with a lag in that
+the coefficient estimates for the Maximum Likelihood model are more statistically
+significant overall, but the coefficient estimates themselves for both models are about
+the same.
+
+An OLS model with a spatial lag is not an appropriate model. In this case, the spatial lag
+model has coefficient estimates that are more statistically significant than the
+coefficient estimates for the OLS with a lag.
+
+### Create a Spatially Lagged Error Model for Crime
+
+```{r}
+
+# Estimate a spatial error model
+error_model <- errorsarlm(columbus$CRIME ~
+                            columbus$INC +
+                            columbus$HOVAL,
+                          listw = columbusnb_queen_W)
+
+summary(error_model)
+
+# Compute Moran's I for the residuals of the error model
+moran.test(resid(error_model), columbusnb_queen_W)
+```
+
+A spatially lagged error model assumes that the error term has spatial dependence.
+Compared to the OLS model without spatial lag, the spatial error model also has negative
+coefficients but they are slightly different from the coefficients for the OLS model with
+no spatial lag. Specifically, the OLS with no lag estimates a larger decrease in income
+but a smaller decrease in housing value compared the spatially lagged error model. The
+coefficients for the spatially lagged error model are more statistically significant
+overall compared to the OLS with no lag. Compared to the spatial error model, the spatial
+lag model estimates a smaller decrease in income and housing value with slightly more
+statistical significance than the spatial error model. There seems to be a small
+difference in the coefficients for the spatial error model and the OLS with no lag, which
+may mean that there is no spatial dependence in the error term and it may not be a valid
+model.
+
+### Choose Between Several Valid Models
+
+```{r}
+# Perform Lagrange Multiplier diagnostics
+lm_tests <- lm.LMtests(ols_model, listw = columbusnb_queen_W, test = "all")
+
+# Summarize the outputs into a table
+lm_results <- t(sapply(lm_tests, function(test) c(test$statistic, test$parameter, test$p.value)))
+colnames(lm_results) <- c("statistic", "df", "p-value")
+
+printCoefmat(lm_results)
+```

@@ -1,0 +1,209 @@
+---
+title: 'Spatial Autocorrelation'
+author: "Mariam Walaa"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r warning = FALSE, message = FALSE}
+# Library to load shape file into a spatial object using readOGR.
+library(rgdal)
+
+# Library to automatically compute Moran's I using correlog.
+library(pgirmess)
+
+# Library to:
+# - Create contiguity neighbor lists (poly2nb)
+# - Create neighbor weight lists (nb2listw)
+# - Compute the Moran's I statistic (moran.test)
+# - Estimate spatial lag models (lagsarlm)
+# - Perform Lagrange Multiplier tests (lm.LMtests)
+library(spdep)
+
+# Library to estimate spatial error models.
+library(spatialreg)
+
+# Library for data classification.
+library(classInt)
+
+# Library for color schemes.
+library(RColorBrewer)
+```
+
+This part will use the U.S. Census 2010 data on the Hispanic population in Salt Lake
+County, estimated at the census tract level of aggregation. The shape file is projected
+into U.T.M. Zone 12 coordinates (i.e. coordinates measured in meters). The shape file of
+census tracts will be loaded into a spatial object below.
+
+### Loading and Plotting
+
+The shape file of census tracts in Salt Lake Country has 32 fields and 211 features.  A
+choropleth map of the HIS_PCT variable is created below using the quantile classification
+method, a sequential color scheme, and 5 classes. The HIS_PCT variable is the proportion
+of Hispanic people in each census tract. The quantile classification method bins the
+variable of interest into groups of equal size and is chosen for this map as it seems to
+visually display more variation than Jenks natural breaks or standard deviation. The
+sequential color scheme is chosen since it makes sense to use a lighter value to represent
+lower proportions of Hispanic people within a census tract and a higher value to represent
+higher proportions of Hispanic people within a census tract. The number of classes chosen
+is 5.
+
+```{r}
+SLCCT <- readOGR(dsn = "../data/tutorial_saltlake", layer = "SLC_CT2010")
+```
+
+```{r, fig.width=10, fig.height=10}
+# Define the number of classes.
+nclasses <- 5
+
+# Define the classification method. Available methods include: "equal", "sd", "quantile", "kmeans", "jenks"
+class <- classIntervals(var = SLCCT$HIS_PCT, n = nclasses, style = "quantile", dataPrecision = 2)
+
+# Set color palette.
+colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "PuBu"), digits = 3)
+
+# Plot the map.
+plot(SLCCT, col = colcode, border = "black", axes = T)
+
+# Add a title.
+title(main = "Proportion of Hispanic People By Census Tract, Salt Lake County 2010")
+
+# Add a legend.
+legend("bottomleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
+```
+
+```{r, fig.width=10, fig.height=6}
+hist(x = SLCCT$HIS_PCT, breaks = 60, xlab = "Proportion of Hispanic People", 
+     main = paste("Proportion of Hispanic People By Census Tract in Salt Lake County,", 
+                "U.S. Census 2010", sep = "\n"))
+summary(SLCCT$HIS_PCT)
+```
+
+The histogram of the distribution of proportion of Hispanic people in each census tract
+displays a right-tailed distribution showing that majority of census tracts have 10% or
+less Hispanic people within a census tract, with some outlying census tracts with more
+than 50% proportion of Hispanic people in the census tract. The summary statistics table
+further supports the plot of the right-tailed, non-symmetric distribution of proportions
+of Hispanic people above. Both the histogram and descriptive statistics explain the
+spatial patterns that are seen in the map of the Hispanic population in Salt Lake County.
+Specifically, majority of the census tracts have less than 30% proportions of Hispanic
+people, and this is evident in the choropleth map as only a handful of census tracts
+belong to the largest class interval. In terms of spatial patterns, there seems to be a
+clustering of census tracts that are of the same class interval north west and south west
+of Salt Lake County, and more dispersion at the centre of the map. All of the census
+tracts that are east of Salt Lake County fall into the smallest class interval of 1% to 6%
+Hispanic people.
+
+### Working with Neighbor Lists
+
+The relationships between the census tracts can be explored in order to measure spatial
+autocorrelation using neighbor graphs and weights. This is a two-step process that
+consists of first choosing the neighbor criterion that needs to be satisfied and then
+choosing the method to assign weights to the identified neighbor links. For the first
+step, the spatial object storing the census tract geographic data has been used in the
+process of creating graphs of two different neighbor criterion types (Rook and Queen).The
+Queen neighbors list is expected to contain more links since the queen condition can be
+met by a single shared boundary point, while the rook condition can only be met by more
+than one shared point.
+
+```{r, fig.width=10, fig.height=10}
+# Retrieve coordinates from spatial object.
+coords <- coordinates(SLCCT)
+
+# Create a rook contiguity neighbor list.
+SLCnb_rook <- poly2nb(pl = SLCCT, queen = FALSE)
+
+# Create a queen contiguity neighbor list.
+SLCnb_queen <- poly2nb(pl = SLCCT)
+
+# Find differences between the two contiguity neighbor lists.
+diff_nb <- diffnb(x = SLCnb_queen, y = SLCnb_rook)
+
+# Plot the census tract boundaries.
+plot(x = SLCCT, border = "grey")
+
+# Plot the queen neighbors.
+plot(x = SLCnb_queen, coords, add = TRUE, col = "black")
+
+# Plot the differences between the rook and queens neighbor lists.
+plot(x = diff_nb, coords, add = TRUE, col = "red")
+
+# Add a title.
+title(main = paste("Polygon-Generated Queen Neighbors (Black and Red)",
+                 "and Polygon-Generated Rook Neighbors (Black)", sep = "\n"))
+
+summary(card(SLCnb_rook))
+summary(card(SLCnb_queen))
+```
+
+The summary statistics of the Rook and Queen neighbors shows that none of the methods have
+a normal distribution, and the Queen neighbor list contains more links as expected. This
+has been achieved using the helper function card which provides the cardinality of the
+neighbor set. The neighbor map shows that there are many more neighbor links through the
+queen condition than the rook condition. This is especially the case in areas where there
+are smaller census tracts (north east and north west of the center of the map). This can
+be confirmed by the number of nonzero links given by summary(SLCnb_queen), which show
+there are about 300 more links using the queen condition.
+
+### Creating Weight Matrices from Neighbor Lists
+
+For the second step, matrices of weights have been created for the neighbor lists. These
+weight matrices are contained in a listw object which is made up of the following three
+attributes:
+
+* The style of the weight matrix, which can be 'B' (binary), 'W' (row-normalized), etc.
+* The input neighbors list, which is a list of values representing the number of neighbors
+for each region
+* The weights for each neighbor link based on the chosen style, which is a list of lists
+where each sublist contains weights for that region (if using 'W' style, each region will
+have different weights based on the number of neighbors the region has)
+
+```{r}
+# Create binary weight matrices
+SLCnb_rook_B <- nb2listw(SLCnb_rook, style = "B")
+SLCnb_queen_B <- nb2listw(SLCnb_queen, style = "B")
+
+# Create normalized weight matrices
+SLCnb_rook_W <- nb2listw(SLCnb_rook, style = "W")
+SLCnb_queen_W <- nb2listw(SLCnb_queen, style = "W")
+
+SLCnb_queen_B$weights[1]
+SLCnb_queen_W$weights[1]
+SLCnb_rook_B$weights[1]
+SLCnb_rook_W$weights[1]
+```
+
+The weights object is a list of lists where each sub-list contains all the weights for a
+census tract. For example, the first observation has 9 neighbor weights using the queen
+condition and 6 neighbor weights using the rook condition. The weights for each neighbor
+of a single observation or census tract are represented as 1s using the binary weighting
+scheme and as decimals using the row-normalized weighting scheme. The values in the
+row-normalized matrix are based on the number of neighbors for that observation.
+
+### Global Moran's I
+
+```{r}
+# Compute Global Moran's I for each weight matrix
+print(moran.test(SLCCT$HIS_PCT, listw = SLCnb_rook_B))
+print(moran.test(SLCCT$HIS_PCT, listw = SLCnb_rook_W))
+print(moran.test(SLCCT$HIS_PCT, listw = SLCnb_queen_B))
+print(moran.test(SLCCT$HIS_PCT, listw = SLCnb_queen_W))
+```
+
+Global Moran's I is the measure of spatial autocorrelation for the entire area of study.
+All Moran's I values are statistically significant so there is spatial autocorrelation for
+crime levels in Columbus, Ohio. There is a higher Moran's I value for the weight matrices
+using the row-normalized weighting scheme compared to the weight matrices using the binary
+weighting scheme.
+
+```{r, fig.width=10, fig.height=6}
+# Compute and plot Moran's I for different distances
+plot(correlog(coords, SLCCT$HIS_PCT, method = "Moran"))
+```
+
+This is a plot of global Moran's I values for the percentage of Hispanic people in each
+census tract using different distances. The plot highlights the distances for which the
+Moran's I statistic is statistically significant. The plot shows that a distance class
+around 2000 provides the largest Moran's I statistic of above 0.6, while larger distance
+classes result in less autocorrelation.

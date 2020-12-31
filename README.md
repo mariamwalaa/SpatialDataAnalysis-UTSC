@@ -7,4 +7,6 @@
 5. Principal Component Analysis
 6. Factor Analysis
 7. Cluster Analysis 
-8. Spatial Autocorrelation and Spatial Econometrics
+8. Spatial Autocorrelation
+9. Spatial Econometrics
+10. Decision Trees
