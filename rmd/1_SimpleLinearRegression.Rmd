@@ -109,7 +109,9 @@ abline(lsfit(facebook$consumers, facebook$engaged_users))
 summary(lm(engaged_users ~ consumers, data = facebook))
 ```
 
-The summary shows that the independent variable is statistically significant with a p-value < 2e-16. For every unit change in consumers, we expect a 1.08 increase in engaged users. The model has an adjusted R-squared of 0.9373 with a p-value < 2.2e-16.
+The summary shows that the independent variable is statistically significant with a
+p-value < 2e-16. For every unit change in consumers, we expect a 1.08 increase in engaged
+users. The model has an adjusted R-squared of 0.9373 with a p-value < 2.2e-16.
 
 ```{r, fig.width = 12, fig.height = 8}
 hist(lm(engaged_users ~ consumers, data = facebook)$residuals, breaks = 60,
@@ -127,7 +129,9 @@ The plot of residuals against the fitted values shows a distinct pattern and a c
 which indicates that this isn't a linear relationship. The standardized residuals in the
 normal QQ plot do not follow the dashed line which indicates they are likely not normally
 distributed. The scale-location plot does not show a constant variance of the residuals
-which indicates the data is not homoscedastic. The residuals vs leverage plot shows that some points exceed a standardized residual of greater than 3 which may indicate the presence of outliers, as well as some extreme points such as 39, 143, 447.
+which indicates the data is not homoscedastic. The residuals vs leverage plot shows that
+some points exceed a standardized residual of greater than 3 which may indicate the
+presence of outliers, as well as some extreme points such as 39, 143, 447.
 
 ## Linear Regression (transformed)
 
@@ -140,7 +144,9 @@ abline(lsfit(facebook$consumers_t, facebook$engaged_users_t))
 summary(lm(engaged_users_t ~ consumers_t, data = facebook))
 ```
 
-The summary shows that the independent variable is statistically significant with a p-value < 2e-16. For every unit change in consumers, we expect a 1.05 increase in engaged users. The model has an adjusted R-squared of 0.9658 with a p-value < 2.2e-16.
+The summary shows that the independent variable is statistically significant with a
+p-value < 2e-16. For every unit change in consumers, we expect a 1.05 increase in engaged
+users. The model has an adjusted R-squared of 0.9658 with a p-value < 2.2e-16.
 
 ```{r, fig.width = 12, fig.height = 8}
 hist(lm(engaged_users_t ~ consumers_t, data = facebook)$residuals, breaks = 60,
@@ -154,4 +160,11 @@ par(mfrow = c(2,2))
 plot(lm(engaged_users_t ~ consumers_t, data = facebook))
 ```
 
-The plot of residuals against the fitted values shows less of a distinct pattern after the transformation and the line is more straight and horizontal. The standardized residuals in the normal QQ plot still do not follow the dashed line which indicates they are likely still not normally distributed. The scale-location plot shows a more constant variance of the residuals but there seems to be a cluster of residuals for fitted values near 10. The residuals vs leverage shows that some points exceed a standardized residual of greater than 3 which may indicate the presence of outliers, as well as some extreme points such as 380, 4, and 245.
+The plot of residuals against the fitted values shows less of a distinct pattern after the
+transformation and the line is more straight and horizontal. The standardized residuals in
+the normal QQ plot still do not follow the dashed line which indicates they are likely
+still not normally distributed. The scale-location plot shows a more constant variance of
+the residuals but there seems to be a cluster of residuals for fitted values near 10. The
+residuals vs leverage shows that some points exceed a standardized residual of greater
+than 3 which may indicate the presence of outliers, as well as some extreme points such as
+380, 4, and 245.

@@ -179,7 +179,11 @@ which indicates the presence of outliers, as well as some extreme points includi
 summary(model)
 ```
 
-The distribution of the residuals does not appear to be normal. All of the independent variables in this model are statistically significant with exception to the variable representing the weekday posted. The model has a multiple R-squared of 0.2748 indicating that less than 30% of the variability in the data is explained by this model, and a p-value of < 2.2e-16 indicating the model is statistically significant.
+The distribution of the residuals does not appear to be normal. All of the independent
+variables in this model are statistically significant with exception to the variable
+representing the weekday posted. The model has a multiple R-squared of 0.2748 indicating
+that less than 30% of the variability in the data is explained by this model, and a
+p-value of < 2.2e-16 indicating the model is statistically significant.
 
 ## Linear Regression (transformed)
 
@@ -193,7 +197,9 @@ facebook %>%
   powerTransform(family = 'yjPower')
 ```
 
-The power transformations suggest that a power of 0.1 for the dependent variable will provide a more normal distribution. To make the model more interpretable, the log of consumers will be taken in the transformed model.
+The power transformations suggest that a power of 0.1 for the dependent variable will
+provide a more normal distribution. To make the model more interpretable, the log of
+consumers will be taken in the transformed model.
 
 ```{r}
 transformed_model <- lm(log(consumers) ~
@@ -210,10 +216,20 @@ par(mfrow = c(2,2))
 plot(transformed_model)
 ```
 
-The plot of fitted values against residuals shows no distinct pattern and slightly curved horizontal line. The normal QQ plot shows that most standardized residuals lie along the dashed line but are skewed towards the end and beginning which may indicate a non-normal distribution of residuals. The scale-location plot shows a slightly curved horizontal line which may indicate slightly non-constant variance in the residuals. The residuals vs leverage plot indicates very few points that have a standardized residual greater than 3 so there are likely few outliers, as well as some extreme values such as 431, 442, and 141.
+The plot of fitted values against residuals shows no distinct pattern and slightly curved
+horizontal line. The normal QQ plot shows that most standardized residuals lie along the
+dashed line but are skewed towards the end and beginning which may indicate a non-normal
+distribution of residuals. The scale-location plot shows a slightly curved horizontal line
+which may indicate slightly non-constant variance in the residuals. The residuals vs
+leverage plot indicates very few points that have a standardized residual greater than 3
+so there are likely few outliers, as well as some extreme values such as 431, 442, and
+141.
 
 ```{r}
 summary(transformed_model)
 ```
 
-The distribution of residuals appear to be slightly skewed with some outliers to the left. There are now two statistically insignificant independent variables in the model but the multiple R-squared has increased, showing that about 31% of the variation in the data is explained by this model, with a statistically significant p-value of < 2.2e-16.
+The distribution of residuals appear to be slightly skewed with some outliers to the left.
+There are now two statistically insignificant independent variables in the model but the
+multiple R-squared has increased, showing that about 31% of the variation in the data is
+explained by this model, with a statistically significant p-value of < 2.2e-16.
