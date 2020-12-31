@@ -1,0 +1,185 @@
+---
+title: 'Principal Component Analysis'
+author: "Mariam Walaa"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r warning = FALSE, message = FALSE}
+library(factoextra)
+library(corrplot)
+library(psych)
+library(tidyverse)
+```
+
+### Data
+
+In this section, I will be using principal component analysis to explore 2016 census data
+aggregated by City of Toronto's 140 neighborhoods. The full data set consists of more than
+2000 variables regarding demographics, immigration, housing, transportation, employment,
+income, ethnicity, etc. The data has been loaded into a data frame and subset to focus
+only on categories about journey to work, education, labour, population type, and income.
+A subset of continuous variables from these categories have been selected and raw count
+variables have been normalized by the population for each neighborhood.
+
+```{r warning = FALSE, echo = FALSE}
+neighborhoods <- read.csv('data/neighbourhood-profiles-2016-csv.csv')
+neighborhoods %>%
+  subset(Category == "Population"
+         | Category == "Journey to work"
+         | Category == "Education"
+         | Category == "Income"
+         | Category == "Labour"
+         | Characteristic == "Population, 2016") %>%
+  select(!c(1:4, 6)) -> neighborhoods
+
+neighborhoods <- as.data.frame(t(neighborhoods))
+
+names(neighborhoods) <- neighborhoods[1,]
+neighborhoods <- neighborhoods[-1,]
+neighborhoods <- tibble::rownames_to_column(neighborhoods, "neighborhood")
+neighborhoods[, -1] <- apply(neighborhoods[, -1], 2,
+                             function(column) as.numeric(gsub("[\\,]","", column)))
+
+neighborhoods <- neighborhoods[ ,
+                               c("neighborhood", "Population, 2016",
+                                 "Children (0-14 years)",
+                                 "Youth (15-24 years)",
+                                 "Working Age (25-54 years)",
+                                 "Pre-retirement (55-64 years)",
+                                 "Seniors (65+ years)",
+                                 "Older Seniors (85+ years)",
+                                 "  Car, truck, van - as a driver",
+                                 "  Car, truck, van - as a passenger",
+                                 "  Public transit",
+                                 "  Walked",
+                                 "  Bicycle",
+                                 "  Less than 15 minutes",
+                                 "  15 to 29 minutes",
+                                 "  30 to 44 minutes",
+                                 "  45 to 59 minutes",
+                                 "  60 minutes and over",
+                                 "Unemployment rate (Females)",
+                                 "Unemployment rate (Males)",
+                                 "  Worked at home",
+                                 "  No fixed workplace address",
+                                 "  Worked outside Canada",
+                                 "Total income: Average amount ($)",
+                                 "    Employment income: Average amount ($)",
+                                 "    Investment income: Average amount ($)")]
+                                 
+colnames(neighborhoods) <- c("neighborhood", "pop_2016",
+                             "children",
+                             "youth",
+                             "working_age",
+                             "preretired_age",
+                             "senior",
+                             "older_senior",
+                             "drive_commute",
+                             "passenger_commute",
+                             "transit_commute",
+                             "walk_commute",
+                             "bike_commute",
+                             "15min_commute",
+                             "30min_commute",
+                             "45min_commute",
+                             "60min_commute",
+                             "over_60min_commute",
+                             "unemployment_female",
+                             "employment_male",
+                             "work_at_home",
+                             "no_fixed_workplace",
+                             "work_outside_canada",
+                             "avg_total_income",
+                             "avg_employment_income",
+                             "avg_investment_income")
+
+neighborhoods[, c("children",
+                  "youth",
+                  "working_age",
+                  "preretired_age",
+                  "senior",
+                  "older_senior",
+                  "drive_commute",
+                  "passenger_commute",
+                  "transit_commute",
+                  "walk_commute",
+                  "bike_commute",
+                  "15min_commute",
+                  "30min_commute",
+                  "45min_commute",
+                  "60min_commute",
+                  "over_60min_commute",
+                  "unemployment_female",
+                  "employment_male",
+                  "work_at_home",
+                  "no_fixed_workplace",
+                  "work_outside_canada")] <- neighborhoods[, c(
+                  "children",
+                  "youth",
+                  "working_age",
+                  "preretired_age",
+                  "senior",
+                  "older_senior",
+                  "drive_commute",
+                  "passenger_commute",
+                  "transit_commute",
+                  "walk_commute",
+                  "bike_commute",
+                  "15min_commute",
+                  "30min_commute",
+                  "45min_commute",
+                  "60min_commute",
+                  "over_60min_commute",
+                  "unemployment_female",
+                  "employment_male",
+                  "work_at_home",
+                  "no_fixed_workplace",
+                  "work_outside_canada")] / neighborhoods[, "pop_2016"] 
+
+neighborhoods <- neighborhoods %>% select(!pop_2016)
+
+write.csv(neighborhoods, "toronto_neighborhoods.csv", row.names = FALSE)
+
+neighborhoods <- column_to_rownames(neighborhoods, "neighborhood")
+```
+
+### Variable Correlations
+
+```{r, fig.width = 15, fig.height = 15}
+neighborhoods %>%
+  cor() %>%
+  corrplot(type = 'upper', order = 'hclust')
+```
+
+### PCA Results
+
+```{r}
+neighborhoods %>%
+  prcomp(center = TRUE, scale. = TRUE) -> neighborhoods.pca
+```
+
+### PCA Component Selection
+
+```{r, fig.width = 10, fig.height = 6, warning = FALSE}
+get_eigenvalue(neighborhoods.pca)
+fviz_eig(neighborhoods.pca)
+fa.parallel(neighborhoods, fa = "pc", plot = FALSE)
+```
+
+### PC Correlations
+
+```{r, fig.width = 10, fig.height = 10}
+fviz_pca_var(neighborhoods.pca,
+             col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+```
+
+```{r, fig.width = 10, fig.height = 10, warning = FALSE}
+fviz_pca_ind(neighborhoods.pca,
+             col.ind = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+```
