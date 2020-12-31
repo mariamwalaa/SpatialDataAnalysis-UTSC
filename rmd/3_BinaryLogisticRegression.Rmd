@@ -1,0 +1,83 @@
+---
+title: 'Binary Logistic Regression'
+author: "Mariam Walaa"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(MASS)
+library(datasets)
+library(corrplot)
+library(nnet)
+library(broom)
+```
+
+### Data
+
+This data set comes from the UCI Machine Learning Repository and can be found
+[here](https://archive.ics.uci.edu/ml/datasets/wine+quality). According to the data
+abstract, this data set consists of red vinho verde wine samples from the north of
+Portugal. The purpose of this data set is to model wine quality based on physicochemical
+tests. This data set contains one integer variable and the remaining variables are
+doubles. There are 1,599 red wine samples and 12 variables describing each sample. There
+are no missing values in this data set. The dependent variable is wine quality.
+
+```{r}
+wine <- read.csv(file = '../data/Wine/winequality-red.csv', sep = ';')
+```
+
+```{r}
+glimpse(wine)
+```
+
+```{r}
+summary(wine)
+```
+
+```{r, fig.width = 20, fig.height = 20}
+wine %>% 
+  cor() %>%
+  corrplot.mixed(order="hclust", tl.col="black")
+```
+
+```{r}
+hist(wine$quality)
+```
+
+```{r}
+wine$quality <- ifelse(wine$quality > 6, 1, 0)
+
+stepAIC(glm(quality ~.,
+                    data = wine,
+                    family = binomial(link = 'logit')), 
+        trace = FALSE)$anova
+```
+
+```{r}
+model <- glm(quality ~
+               fixed.acidity +
+               volatile.acidity +
+               residual.sugar +
+               chlorides + 
+               total.sulfur.dioxide +
+               density +
+               sulphates +
+               alcohol,
+             data = wine,
+             family = binomial(link = 'logit'))
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+round(exp(coef(model)), 3)
+```
+
+```{r}
+round(exp(confint(model)), 3)
+```

@@ -1,0 +1,154 @@
+---
+title: 'Multiple Linear Regression & Diagnostics'
+author: "Mariam Walaa"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r warning = FALSE, message = FALSE}
+library(magrittr)
+library(MASS)
+library(car)
+library(alr3)
+library(corrplot)
+library(tidyverse)
+```
+
+### Data
+
+This data set comes from the UCI Machine Learning Repository and can be found
+[here](https://archive.ics.uci.edu/ml/datasets/Facebook+metrics). According to the data
+abstract, this data set consists of posts published during the year of 2014 on the
+Facebook pages of a renowned cosmetics brand. The data set contains 500 rows and 19
+variables about each post.
+
+```{r}
+facebook <- read.csv(file = '../data/Facebook_metrics/dataset_Facebook.csv', sep = ';')
+```
+
+```{r echo = FALSE}
+colnames(facebook) <- c("total_page_likes", "type", "category", 
+                        "month_posted", "weekday_posted", "hour_posted",
+                        "paid", "total_reach", "total_impressions", 
+                        "engaged_users",  "consumers", "consumptions",
+                        "impressions_by_page_likers", "reach_by_page_likers", 
+                        "engagements_by_page_likers", "comments", "likes", 
+                        "shares", "total_interactions")
+```
+
+```{r}
+facebook <-
+  facebook %>%
+  na.omit()
+```
+
+```{r, fig.width = 10, fig.height = 10}
+facebook %>% 
+  select(!type) %>%
+  cor() %>%
+  corrplot.mixed(order = "hclust", tl.col = "black")
+```
+
+```{r}
+stepAIC(lm(consumers ~ 
+             category +
+             total_page_likes +
+             type +
+             month_posted +
+             hour_posted +
+             weekday_posted +
+             paid,
+           data = facebook),
+        trace = FALSE)$anova
+```
+
+```{r}
+lm(consumers ~
+     category +
+     total_page_likes +
+     type +
+     weekday_posted +
+     paid,
+   data = facebook) %>%
+  summary()
+```
+
+```{r, fig.width = 10, fig.height = 12}
+lm(consumers ~ 
+     category +
+     total_page_likes +
+     type +
+     weekday_posted +
+     paid,
+   data = facebook) %>%
+  avPlots(ask = FALSE)
+```
+
+```{r}
+facebook %>% 
+  select(category,
+         total_page_likes,
+         weekday_posted,
+         paid) %>%
+  cor()
+```
+
+```{r}
+lm(consumers ~ 
+     category +
+     total_page_likes + 
+     type +
+     weekday_posted +
+     paid,
+   data = facebook) %>%
+  vif()
+```
+
+```{r}
+model <- lm(consumers ~ 
+     category +
+     total_page_likes + 
+     type +
+     weekday_posted +
+     paid,
+   data = facebook)
+```
+
+```{r, fig.width = 12, fig.height = 8}
+par(mfrow = c(2,2))
+plot(model)
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+facebook %>% 
+  select(consumers,
+         category,
+         total_page_likes,
+         weekday_posted,
+         paid) %>%
+  powerTransform(family = 'yjPower')
+```
+
+```{r}
+transformed_model <- lm(log(consumers) ~
+                          category +
+                          total_page_likes +
+                          type +
+                          weekday_posted +
+                          paid,
+                        data = facebook)
+```
+
+```{r}
+summary(transformed_model)
+```
+
+```{r, fig.width = 12, fig.height = 8}
+par(mfrow = c(2,2))
+plot(transformed_model)
+```

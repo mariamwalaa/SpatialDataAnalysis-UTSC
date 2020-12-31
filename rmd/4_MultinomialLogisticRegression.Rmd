@@ -1,0 +1,68 @@
+---
+title: 'Multinomial Logistic Regression'
+author: "Mariam Walaa"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r warning = FALSE, message = FALSE}
+library(MASS)
+library(nnet)
+library(tidyverse)
+library(palmerpenguins)
+library(corrplot)
+```
+
+## Data
+
+
+```{r, fig.width = 20, fig.height = 20}
+penguins %>% 
+  na.omit() %>%
+  select(!c("species", "island", "sex")) %>%
+  cor() %>%
+  corrplot.mixed(order = "hclust", tl.col = "black")
+```
+
+```{r}
+penguins$species <- relevel(penguins$species, ref = "Gentoo")
+penguins <- penguins %>% na.omit()
+```
+
+```{r}
+summary(stepAIC(multinom(species ~.,
+                         data = penguins,
+                         trace = FALSE),
+                trace = FALSE))$anova
+
+model <- multinom(species ~
+                    bill_length_mm +
+                    bill_depth_mm +
+                    sex,
+                  data = penguins,
+                  trace = FALSE)
+
+summary(model)
+```
+
+```{r}
+(1 - pnorm(abs(summary(model)$coefficients /
+                 summary(model)$standard.errors), 0, 1)) * 2
+```
+
+```{r}
+round(exp(coef(model)), 3)
+```
+
+```{r}
+round(exp(confint(model)), 3)
+```
+
+```{r}
+head(round(fitted(model)), 10)
+probabilities <- predict(model, penguins[,2:8], type = "probs")
+predictions <- apply(probabilities, 1, which.max)
+table(penguins$species, predictions)
+```
