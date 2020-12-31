@@ -27,67 +27,131 @@ facebook <- read.csv(file = '../data/Facebook_metrics/dataset_Facebook.csv', sep
 ```
 
 ```{r echo = FALSE}
-colnames(facebook) <- c("total_page_likes", "type", "category", "month_posted", "weekday_posted", "hour_posted",
-                        "paid", "total_reach", "total_impressions", "engaged_users",  "consumers", "consumptions",
-                        "impressions_by_page_likers", "reach_by_page_likers", "engagements_by_page_likers", 
-                        "comments", "likes", "shares", "total_interactions")
+colnames(facebook) <- c("total_page_likes",
+                        "type",
+                        "category", 
+                        "month_posted", 
+                        "weekday_posted",
+                        "hour_posted",
+                        "paid", 
+                        "total_reach",
+                        "total_impressions",
+                        "engaged_users",
+                        "consumers",
+                        "consumptions",
+                        "impressions_by_page_likers",
+                        "reach_by_page_likers",
+                        "engagements_by_page_likers", 
+                        "comments",
+                        "likes",
+                        "shares",
+                        "total_interactions")
 ```
 
 ```{r, fig.width = 20, fig.height = 20}
 plot(facebook)
 ```
 
-```{r}
-X <- facebook$consumers
-hist(X, breaks = 200)
-shapiro.test(bcPower(X, powerTransform(X)$lambda))
-facebook$X_trans <- bcPower(X, powerTransform(X)$lambda)
-hist(facebook$X_trans, breaks = 30)
+## Data Distributions 
+
+```{r fig.width = 12, fig.height = 8}
+hist(x = facebook$consumers,
+     breaks = 100,
+     main = "Distribution of Consumers of Each Facebook Post")
+```
+
+```{r fig.width = 12, fig.height = 8}
+hist(x = facebook$engaged_users,
+     breaks = 100,
+     main = "Distribution of Engaged Users for Each Facebook Post")
+```
+
+## Data Transformations
+
+```{r fig.width = 12, fig.height = 8}
+bcPower(U = facebook$consumers,
+        lambda = powerTransform(facebook$consumers)$lambda) -> facebook$consumers_t
+
+hist(facebook$consumers_t, breaks = 60,
+     main = "Distribution of Consumers of Each Facebook Post (transformed)")
+
+shapiro.test(bcPower(U = facebook$consumers,
+                     lambda = powerTransform(facebook$consumers)$lambda))
+```
+
+The Shapiro-Wilk test of normality results in a p-value of 0.0001567 which means we reject
+the null hypothesis and there is evidence that the distribution of consumers of each
+Facebook post after the power transformation is not normal.
+
+```{r fig.width = 12, fig.height = 8}
+bcPower(U = facebook$engaged_users,
+        lambda = powerTransform(facebook$engaged_users)$lambda) -> facebook$engaged_users_t
+
+hist(facebook$engaged_users_t, breaks = 60,
+     main = "Distribution of Engaged Users for Each Facebook Post (transformed)")
+
+shapiro.test(bcPower(U = facebook$engaged_users,
+                     lambda = powerTransform(facebook$engaged_users)$lambda))
+```
+
+The Shapiro-Wilk test of normality results in a p-value of 4.192e-06 which means we reject
+the null hypothesis and there is evidence that the distribution of engaged users for each
+Facebook post after the power transformation is not normal.
+
+## Linear Regression
+
+```{r, fig.width = 12, fig.height = 8}
+plot(facebook$consumers, facebook$engaged_users)
+abline(lsfit(facebook$consumers, facebook$engaged_users))
 ```
 
 ```{r}
-Y <- facebook$engaged_users
-hist(Y, breaks = 200)
-shapiro.test(bcPower(Y, powerTransform(Y)$lambda))
-facebook$Y_trans <- bcPower(Y, powerTransform(Y)$lambda)
-hist(facebook$Y_trans, breaks = 30)
+summary(lm(engaged_users ~ consumers, data = facebook))
 ```
 
-```{r, fig.width = 10, fig.height = 6}
-plot(X, Y)
-abline(lsfit(X, Y))
-summary(lm(Y ~ X))
-shapiro.test(lm(Y_trans ~ X_trans, data = facebook)$residuals)
+The summary shows that the independent variable is statistically significant with a p-value < 2e-16. For every unit change in consumers, we expect a 1.08 increase in engaged users. The model has an adjusted R-squared of 0.9373 with a p-value < 2.2e-16.
+
+```{r, fig.width = 12, fig.height = 8}
+hist(lm(engaged_users ~ consumers, data = facebook)$residuals, breaks = 60,
+     main = "Distribution of residuals for untransformed model")
 ```
+
+The distribution of residuals is not normal.
 
 ```{r, fig.width = 12, fig.height = 8}
 par(mfrow = c(2,2))
-plot(lm(Y ~ X))
+plot(lm(engaged_users_t ~ consumers, data = facebook))
 ```
 
-```{r, fig.width = 10, fig.height = 6}
-plot(facebook$X_trans, facebook$Y_trans)
-abline(lsfit(facebook$X_trans, facebook$Y_trans))
-summary(lm(Y_trans ~ X_trans, data = facebook))
-shapiro.test(lm(Y_trans ~ X_trans, data = facebook)$residuals)
+The plot of residuals against the fitted values shows a distinct pattern and a curved line
+which indicates that this isn't a linear relationship. The standardized residuals in the
+normal QQ plot do not follow the dashed line which indicates they are likely not normally
+distributed. The scale-location plot does not show a constant variance of the residuals
+which indicates the data is not homoscedastic. The residuals vs leverage plot shows that some points exceed a standardized residual of greater than 3 which may indicate the presence of outliers, as well as some extreme points such as 39, 143, 447.
+
+## Linear Regression (transformed)
+
+```{r, fig.width = 12, fig.height = 8}
+plot(facebook$consumers_t, facebook$engaged_users_t)
+abline(lsfit(facebook$consumers_t, facebook$engaged_users_t))
 ```
+
+```{r}
+summary(lm(engaged_users_t ~ consumers_t, data = facebook))
+```
+
+The summary shows that the independent variable is statistically significant with a p-value < 2e-16. For every unit change in consumers, we expect a 1.05 increase in engaged users. The model has an adjusted R-squared of 0.9658 with a p-value < 2.2e-16.
+
+```{r, fig.width = 12, fig.height = 8}
+hist(lm(engaged_users_t ~ consumers_t, data = facebook)$residuals, breaks = 60,
+     main = "Distribution of residuals for transformed model")
+```
+
+The distribution of residuals is not normal.
 
 ```{r, fig.width = 12, fig.height = 8}
 par(mfrow = c(2,2))
-plot(lm(Y_trans ~ X_trans, data = facebook))
+plot(lm(engaged_users_t ~ consumers_t, data = facebook))
 ```
 
-```{r}
-model <- lm(Y_trans ~ X_trans, data = facebook)
-```
-
-```{r}
-anova(model, update(model, ~.-X_trans)) 
-```
-
-<!-- Which variables are most correlated? -->
-<!-- Are they normally distributed? -->
-<!-- Does it look like we can apply a linear regression to it? -->
-<!-- Is the independent variable statistically significant? -->
-<!-- Is the model statistically significant? -->
-<!-- Is this model better than an intercept-only model? -->
+The plot of residuals against the fitted values shows less of a distinct pattern after the transformation and the line is more straight and horizontal. The standardized residuals in the normal QQ plot still do not follow the dashed line which indicates they are likely still not normally distributed. The scale-location plot shows a more constant variance of the residuals but there seems to be a cluster of residuals for fitted values near 10. The residuals vs leverage shows that some points exceed a standardized residual of greater than 3 which may indicate the presence of outliers, as well as some extreme points such as 380, 4, and 245.

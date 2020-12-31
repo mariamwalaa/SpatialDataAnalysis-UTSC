@@ -21,20 +21,33 @@ This data set comes from the UCI Machine Learning Repository and can be found
 [here](https://archive.ics.uci.edu/ml/datasets/Facebook+metrics). According to the data
 abstract, this data set consists of posts published during the year of 2014 on the
 Facebook pages of a renowned cosmetics brand. The data set contains 500 rows and 19
-variables about each post.
+variables about each post. The dependent variable is the number of people who clicked on
+the post.
 
 ```{r}
 facebook <- read.csv(file = '../data/Facebook_metrics/dataset_Facebook.csv', sep = ';')
 ```
 
 ```{r echo = FALSE}
-colnames(facebook) <- c("total_page_likes", "type", "category", 
-                        "month_posted", "weekday_posted", "hour_posted",
-                        "paid", "total_reach", "total_impressions", 
-                        "engaged_users",  "consumers", "consumptions",
-                        "impressions_by_page_likers", "reach_by_page_likers", 
-                        "engagements_by_page_likers", "comments", "likes", 
-                        "shares", "total_interactions")
+colnames(facebook) <- c("total_page_likes",
+                        "type",
+                        "category", 
+                        "month_posted", 
+                        "weekday_posted",
+                        "hour_posted",
+                        "paid", 
+                        "total_reach",
+                        "total_impressions",
+                        "engaged_users",
+                        "consumers",
+                        "consumptions",
+                        "impressions_by_page_likers",
+                        "reach_by_page_likers",
+                        "engagements_by_page_likers", 
+                        "comments",
+                        "likes",
+                        "shares",
+                        "total_interactions")
 ```
 
 ```{r}
@@ -43,12 +56,25 @@ facebook <-
   na.omit()
 ```
 
-```{r, fig.width = 10, fig.height = 10}
+## Dataset Correlations
+
+```{r, fig.width = 15, fig.height = 15}
 facebook %>% 
   select(!type) %>%
   cor() %>%
-  corrplot.mixed(order = "hclust", tl.col = "black")
+  corrplot(type = "upper",
+           order = "hclust")
 ```
+
+The strongest correlations are among the variables describing the engagements with the
+posts, such as impressions, comments, shares, likes, reach, interactions, etcetera. These
+are all positive correlations among each other. The weakest correlations are among the
+variables describing the details of the post, such as the day it was posted, the month it
+was posted, hour it was posted, whether it was a paid post, number of likes the page has,
+the category of the post, etcetera. These are mostly negative correlations among each
+other.
+
+## Model Selection
 
 ```{r}
 stepAIC(lm(consumers ~ 
@@ -63,6 +89,13 @@ stepAIC(lm(consumers ~
         trace = FALSE)$anova
 ```
 
+The step AIC model selection algorithm is performed on a subset of the variables -- the
+variables describing the post details as opposed to the variables regarding the
+interactions and reach of the post. The step AIC suggests that predicting the number of
+people who clicked somewhere on the post by category, total page likes, type of post,
+month posted, hour posted, weekday posted, and whether it was paid provides the best
+model.
+
 ```{r}
 lm(consumers ~
      category +
@@ -74,7 +107,9 @@ lm(consumers ~
   summary()
 ```
 
-```{r, fig.width = 10, fig.height = 12}
+## Variable Correlations
+
+```{r fig.width = 8, fig.height = 10}
 lm(consumers ~ 
      category +
      total_page_likes +
@@ -82,8 +117,12 @@ lm(consumers ~
      weekday_posted +
      paid,
    data = facebook) %>%
-  avPlots(ask = FALSE)
+  avPlots()
 ```
+
+The AV plots show that having a post of type Status or a post of type Video results in the
+most impact on the number of people clicking somewhere on the post, followed by total page
+likes.
 
 ```{r}
 facebook %>% 
@@ -105,14 +144,20 @@ lm(consumers ~
   vif()
 ```
 
+There are very small correlations among the selected independent variables, and this is
+supported by VIF values near 1, so there is no concern around having multi-collinearity in
+this model.
+
+## Linear Regression
+
 ```{r}
-model <- lm(consumers ~ 
-     category +
-     total_page_likes + 
-     type +
-     weekday_posted +
-     paid,
-   data = facebook)
+model <- lm(consumers ~
+              category +
+              total_page_likes + 
+              type +
+              weekday_posted +
+              paid,
+            data = facebook)
 ```
 
 ```{r, fig.width = 12, fig.height = 8}
@@ -120,9 +165,23 @@ par(mfrow = c(2,2))
 plot(model)
 ```
 
+The plot of fitted values against residuals shows an approximately horizontal line at zero
+with no clear pattern which supports linearity of the model. The normal QQ plot shows that
+the standardized residuals mostly lay along the dashed line but are skewed towards the
+beginning and end which may indicate that the residuals are not normally distributed. The
+scale-location plot shows that the standardized residuals do not have a constant variance
+as the line is not horizontal which may indicate heteroscedasticity. The residuals vs
+leverage plot shows that there are some points with a standardized residual greater than 3
+which indicates the presence of outliers, as well as some extreme points including 447,
+143, and 244 which may require further investigation.
+
 ```{r}
 summary(model)
 ```
+
+The distribution of the residuals does not appear to be normal. All of the independent variables in this model are statistically significant with exception to the variable representing the weekday posted. The model has a multiple R-squared of 0.2748 indicating that less than 30% of the variability in the data is explained by this model, and a p-value of < 2.2e-16 indicating the model is statistically significant.
+
+## Linear Regression (transformed)
 
 ```{r}
 facebook %>% 
@@ -134,6 +193,8 @@ facebook %>%
   powerTransform(family = 'yjPower')
 ```
 
+The power transformations suggest that a power of 0.1 for the dependent variable will provide a more normal distribution. To make the model more interpretable, the log of consumers will be taken in the transformed model.
+
 ```{r}
 transformed_model <- lm(log(consumers) ~
                           category +
@@ -144,11 +205,15 @@ transformed_model <- lm(log(consumers) ~
                         data = facebook)
 ```
 
-```{r}
-summary(transformed_model)
-```
-
 ```{r, fig.width = 12, fig.height = 8}
 par(mfrow = c(2,2))
 plot(transformed_model)
 ```
+
+The plot of fitted values against residuals shows no distinct pattern and slightly curved horizontal line. The normal QQ plot shows that most standardized residuals lie along the dashed line but are skewed towards the end and beginning which may indicate a non-normal distribution of residuals. The scale-location plot shows a slightly curved horizontal line which may indicate slightly non-constant variance in the residuals. The residuals vs leverage plot indicates very few points that have a standardized residual greater than 3 so there are likely few outliers, as well as some extreme values such as 431, 442, and 141.
+
+```{r}
+summary(transformed_model)
+```
+
+The distribution of residuals appear to be slightly skewed with some outliers to the left. There are now two statistically insignificant independent variables in the model but the multiple R-squared has increased, showing that about 31% of the variation in the data is explained by this model, with a statistically significant p-value of < 2.2e-16.
