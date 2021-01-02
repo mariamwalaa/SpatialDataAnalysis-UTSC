@@ -6,17 +6,29 @@ output:
   pdf_document: default
 ---
 
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+packages = c("nnet", "MASS", "palmerpenguins", "corrplot", "tidyverse")
+install.fcn <- function(x){
+  if (!require(x, character.only = TRUE)){
+    install.packages(x, dependencies = TRUE)
+  }
+}
+package.check <- lapply(packages, install.fcn)
+```
 
 ```{r warning = FALSE, message = FALSE}
-library(MASS)
 library(nnet)
-library(tidyverse)
+library(MASS)
 library(palmerpenguins)
 library(corrplot)
+library(tidyverse)
 ```
 
 ## Data
 
+This part uses the palmer penguins dataset provided by the Long Term Ecological Research
+Network and including measurements for penguins located in an island in Palmer
+Archipelago, such as flipper length, body mass, bill dimensions, and sex.
 
 ```{r, fig.width = 20, fig.height = 20}
 penguins %>% 
@@ -26,9 +38,14 @@ penguins %>%
   corrplot.mixed(order = "hclust", tl.col = "black")
 ```
 
+The flipper length, bill length, and body mass are strongly positively correlated while
+bill depth is negatively correlated to them all, and year of study is not correlated to
+anything.
+
 ```{r}
 penguins$species <- relevel(penguins$species, ref = "Gentoo")
-penguins <- penguins %>% na.omit()
+penguins <- penguins %>%
+  na.omit()
 ```
 
 ```{r}
@@ -36,7 +53,12 @@ summary(stepAIC(multinom(species ~.,
                          data = penguins,
                          trace = FALSE),
                 trace = FALSE))$anova
+```
 
+The step AIC model selection suggests that a species can best be predicted by bill length,
+bill depth, and sex.
+
+```{r}
 model <- multinom(species ~
                     bill_length_mm +
                     bill_depth_mm +
@@ -47,10 +69,19 @@ model <- multinom(species ~
 summary(model)
 ```
 
+The multinomial regression summary provides coefficients for 2 of the 3 species, Adelie
+and Chinstrap. The effect on the dependent variable for the 3rd species can be computed by
+setting the independent variables to zero. Each coefficient of an independent variable can
+be used to determine the change in log-odds of being a certain type of species for a 1
+unit change in that independent variable.
+
 ```{r}
 (1 - pnorm(abs(summary(model)$coefficients /
                  summary(model)$standard.errors), 0, 1)) * 2
 ```
+
+The p-values are all > 0.05 and indicate that we cannot reject the null hypothesis that
+there is no relationship between the independent variables and the dependent variable.
 
 ```{r}
 round(exp(coef(model)), 3)
@@ -60,9 +91,15 @@ round(exp(coef(model)), 3)
 round(exp(confint(model)), 3)
 ```
 
+The confidence intervals of all the independent variables are extremely large.
+
 ```{r}
-head(round(fitted(model)), 10)
-probabilities <- predict(model, penguins[,2:8], type = "probs")
-predictions <- apply(probabilities, 1, which.max)
+predict(model,
+        penguins[,2:8],
+        type = "probs") %>%
+  apply(1, which.max) -> predictions
+
 table(penguins$species, predictions)
 ```
+
+Each species is predicted with 100% accuracy.

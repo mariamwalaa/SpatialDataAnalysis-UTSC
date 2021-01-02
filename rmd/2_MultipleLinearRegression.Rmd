@@ -6,11 +6,19 @@ output:
   pdf_document: default
 ---
 
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+packages = c("car", "MASS", "corrplot", "tidyverse")
+install.fcn <- function(x){
+  if (!require(x, character.only = TRUE)){
+    install.packages(x, dependencies = TRUE)
+  }
+}
+package.check <- lapply(packages, install.fcn)
+```
+
 ```{r warning = FALSE, message = FALSE}
-library(magrittr)
-library(MASS)
 library(car)
-library(alr3)
+library(MASS)
 library(corrplot)
 library(tidyverse)
 ```
