@@ -6,10 +6,20 @@ output:
   pdf_document: default
 ---
 
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+packages = c("factoextra", "psych", "corrplot", "tidyverse")
+install.fcn <- function(x){
+  if (!require(x, character.only = TRUE)){
+    install.packages(x, dependencies = TRUE)
+  }
+}
+package.check <- lapply(packages, install.fcn)
+```
+
 ```{r warning = FALSE, message = FALSE}
 library(factoextra)
-library(corrplot)
 library(psych)
+library(corrplot)
 library(tidyverse)
 ```
 
@@ -24,7 +34,7 @@ A subset of continuous variables from these categories have been selected and ra
 variables have been normalized by the population for each neighborhood.
 
 ```{r warning = FALSE, echo = FALSE}
-neighborhoods <- read.csv('data/neighbourhood-profiles-2016-csv.csv')
+neighborhoods <- read.csv('../data/TorontoNeighbourhoods_2016/neighbourhood-profiles-2016-csv.csv')
 neighborhoods %>%
   subset(Category == "Population"
          | Category == "Journey to work"
@@ -42,7 +52,7 @@ neighborhoods <- tibble::rownames_to_column(neighborhoods, "neighborhood")
 neighborhoods[, -1] <- apply(neighborhoods[, -1], 2,
                              function(column) as.numeric(gsub("[\\,]","", column)))
 
-neighborhoods <- neighborhoods[ ,
+neighborhoods <- neighborhoods[,
                                c("neighborhood", "Population, 2016",
                                  "Children (0-14 years)",
                                  "Youth (15-24 years)",
@@ -140,7 +150,8 @@ neighborhoods[, c("children",
 
 neighborhoods <- neighborhoods %>% select(!pop_2016)
 
-write.csv(neighborhoods, "toronto_neighborhoods.csv", row.names = FALSE)
+write.csv(neighborhoods, "../data/TorontoNeighbourhoods_2016/toronto_neighborhoods.csv",
+          row.names = FALSE)
 
 neighborhoods <- column_to_rownames(neighborhoods, "neighborhood")
 ```
@@ -150,8 +161,18 @@ neighborhoods <- column_to_rownames(neighborhoods, "neighborhood")
 ```{r, fig.width = 15, fig.height = 15}
 neighborhoods %>%
   cor() %>%
-  corrplot(type = 'upper', order = 'hclust')
+  corrplot(type = 'upper', order = 'alphabet')
 ```
+
+
+Neighborhoods where there are more people with commutes within 60 minutes are less
+likely to have more people that are seniors or children and more likely to have people
+that are of working age, as well as females that are unemployed. However, they are more
+likely to have people who walk to work, work at home, or work outside of Canada.
+Neighborhoods where there are people with higher incomes are more likely to have people in
+the older demographic and less likely to have people with a commute longer than an hour or
+people who commute as passengers or take transit. They are, however, more likely to work
+at home or work outside of Canada.
 
 ### PCA Results
 
@@ -168,6 +189,13 @@ fviz_eig(neighborhoods.pca)
 fa.parallel(neighborhoods, fa = "pc", plot = FALSE)
 ```
 
+The scree plot and eigenvalues suggest taking the first 6 principal components while the
+parallel analysis suggests taking the first 5 principal components.
+
+```{r}
+neighborhoods.pca$rotation[,1:5]
+```
+
 ### PC Correlations
 
 ```{r, fig.width = 10, fig.height = 10}
@@ -177,9 +205,19 @@ fviz_pca_var(neighborhoods.pca,
              repel = TRUE)
 ```
 
+Plotting the variables with the first component against the second component shows how the
+variables relate to each other. The older demographic correlates negatively with short
+commutes, walking, biking, and transit. The longer commutes and a non-fixed workplace
+correlate negatively with income and working at home or outside of Canada. The employment
+rate for males, unemployment rates for females, youth population, and 60 minute commutes
+are not well-represented by the first two principal components.
+
 ```{r, fig.width = 10, fig.height = 10, warning = FALSE}
 fviz_pca_ind(neighborhoods.pca,
              col.ind = "cos2",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
              repel = TRUE)
 ```
+
+Casa Loma, Forest Hill South, Rosedale Moore Park, and Niagara are some neighborhoods that
+are distant from the large cluster of neighborhoods.

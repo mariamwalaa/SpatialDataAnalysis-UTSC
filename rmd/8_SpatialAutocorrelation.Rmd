@@ -2,32 +2,41 @@
 title: 'Spatial Autocorrelation'
 author: "Mariam Walaa"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+packages = c(
+  # Library to load shape file into a spatial object using readOGR.
+  "rgdal",
+  # Library to automatically compute Moran's I using correlog.
+  "pgirmess",
+  # Library to:
+  # - Create contiguity neighbor lists (poly2nb)
+  # - Create neighbor weight lists (nb2listw)
+  # - Compute the Moran's I statistic (moran.test)
+  # - Estimate spatial lag models (lagsarlm)
+  # - Perform Lagrange Multiplier tests (lm.LMtests)
+  "spdep",
+  # Library for data classification.
+  "classInt",
+  # Library for color schemes.
+  "RColorBrewer"
+  )
+install.fcn <- function(x){
+  if (!require(x, character.only = TRUE)){
+    install.packages(x, dependencies = TRUE)
+  }
+}
+package.check <- lapply(packages, install.fcn)
+```
+
 ```{r warning = FALSE, message = FALSE}
-# Library to load shape file into a spatial object using readOGR.
 library(rgdal)
-
-# Library to automatically compute Moran's I using correlog.
 library(pgirmess)
-
-# Library to:
-# - Create contiguity neighbor lists (poly2nb)
-# - Create neighbor weight lists (nb2listw)
-# - Compute the Moran's I statistic (moran.test)
-# - Estimate spatial lag models (lagsarlm)
-# - Perform Lagrange Multiplier tests (lm.LMtests)
 library(spdep)
-
-# Library to estimate spatial error models.
-library(spatialreg)
-
-# Library for data classification.
 library(classInt)
-
-# Library for color schemes.
 library(RColorBrewer)
 ```
 

@@ -2,9 +2,37 @@
 title: 'Spatial Econometrics'
 author: "Mariam Walaa"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+packages = c(
+  # Library to load shape file into a spatial object using readOGR.
+  "rgdal",
+  # Library to automatically compute Moran's I using correlog.
+  "pgirmess",
+  # Library to:
+  # - Create contiguity neighbor lists (poly2nb)
+  # - Create neighbor weight lists (nb2listw)
+  # - Compute the Moran's I statistic (moran.test)
+  # - Estimate spatial lag models (lagsarlm)
+  # - Perform Lagrange Multiplier tests (lm.LMtests)
+  "spdep",
+  # Library for data classification.
+  "classInt",
+  # Library for color schemes.
+  "RColorBrewer",
+  # Library for spatial error model.
+  "spatialreg"
+  )
+install.fcn <- function(x){
+  if (!require(x, character.only = TRUE)){
+    install.packages(x, dependencies = TRUE)
+  }
+}
+package.check <- lapply(packages, install.fcn)
+```
 
 ```{r warning = FALSE, message = FALSE}
 library(rgdal)
@@ -28,51 +56,53 @@ columbus <- readOGR(dsn = "../data/tutorial_columbus", layer = "columbus")
 
 The shape file of census tracts in Columbus, Ohio has 20 fields and 49 features.
 
-```{r, fig.width=10, fig.height=6}
+```{r fig.width = 10, fig.height = 6}
+crimes <- as.data.frame(cbind(columbus$CRIME,
+                              columbus$INC,
+                              columbus$HOVAL))
+colnames(crimes) <- c( 'CRIME', 'INC', 'HOVAL')
 
-# Convert to data frame for univariate and bivariate plots below
-crime_df <- as.data.frame(cbind(columbus$CRIME,columbus$INC, columbus$HOVAL))
-colnames(crime_df) <- c( 'CRIME', 'INC', 'HOVAL')
+plot(crimes)
+```
 
-# Plot pairwise correlations
-plot(crime_df)
-
-# Plot quantiles for each variable
-boxplot(crime_df, main = "Boxplots of Crime, Median Income & Median Housing Value in Columbus, Ohio (1980)")
+```{r fig.width = 10, fig.height = 6}
+boxplot(crimes,
+        main = "Crime, Median Income & Median Housing Value in Columbus, Ohio (1980)")
 ```
 
 ```{r, fig.width=10, fig.height=4}
 par(mfrow = c(1,3))
 
-# Define the number of classes.
 nclasses <- 5
-
-# Define the classification method. Available methods include: "equal", "sd", "quantile", "kmeans", "jenks"
-class <- classIntervals(var = columbus$CRIME, n = nclasses, style = "quantile", dataPrecision = 0)
-
-# Set color palette.
-colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "Reds"), digits = 3)
-
-# Plot the map.
-plot(columbus, col = colcode, pch = 19, axes = T, cex = 1.5)
-
-# Add a title.
+crimes_classes <- classIntervals(var = columbus$CRIME,
+                                 n = nclasses,
+                                 style = "quantile",
+                                 dataPrecision = 0)
+colcode <- findColours(clI = crimes_classes,
+                       pal = brewer.pal(nclasses, "Reds"),
+                       digits = 3)
+plot(columbus,
+     col = colcode,
+     pch = 19,
+     axes = T,
+     cex = 1.5)
 title(main = paste("Home Burglaries/Thefts Per 1000 Households",
                  "in Columbus, Ohio (1980)", sep = "\n"))
-
-# Add a legend.
-legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
+legend("topleft",
+       legend = names(attr(colcode, "table")),
+       fill = attr(colcode, "palette"),
+       cex = 0.8)
 
 # Plot a second map for median housing value
-class <- classIntervals(var = columbus$HOVAL, n = nclasses, style = "quantile", dataPrecision = 0)
-colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "Oranges"), digits = 3)
+hoval_classes <- classIntervals(var = columbus$HOVAL, n = nclasses, style = "quantile", dataPrecision = 0)
+colcode <- findColours(clI = hoval_classes, pal = brewer.pal(nclasses, "Oranges"), digits = 3)
 plot(columbus, col = colcode, pch = 19, axes = T, cex = 1.5)
 title(main = paste("Median Housing Value in $1000's", "in Columbus, Ohio (1980)", sep = "\n"))
 legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
 
 # Plot a third map for median household income
-class <- classIntervals(var = columbus$INC, n = nclasses, style = "quantile", dataPrecision = 0)
-colcode <- findColours(clI = class, pal = brewer.pal(nclasses, "Greens"), digits = 3)
+income_classes <- classIntervals(var = columbus$INC, n = nclasses, style = "quantile", dataPrecision = 0)
+colcode <- findColours(clI = income_classes, pal = brewer.pal(nclasses, "Greens"), digits = 3)
 plot(columbus, col = colcode, pch = 19, axes = T, cex = 1.5)
 title(main = paste("Median Household Income in $1000's", "in Columbus, Ohio (1980)", sep = "\n"))
 legend("topleft", legend = names(attr(colcode, "table")), fill = attr(colcode, "palette"), cex = 0.8)
@@ -103,14 +133,12 @@ household income class interval of nearby census tracts.
 ### Perform Basic Spatial Statistics
 
 ```{r}
-
 # Create a queen contiguity neighbor list.
 columbusnb_queen <- poly2nb(pl = columbus)
 
 # Create a row-normalized weight matrix.
 columbusnb_queen_W <- nb2listw(columbusnb_queen, style = "W")
 
-# Compute Global Moran's I
 moran_queen_crime <- moran.test(x = columbus$CRIME, listw = columbusnb_queen_W)
 moran_queen_hoval <- moran.test(x = columbus$HOVAL, listw = columbusnb_queen_W)
 moran_queen_inc <- moran.test(x = columbus$INC, listw = columbusnb_queen_W)
@@ -119,7 +147,6 @@ summary(columbusnb_queen_W)
 print(moran_queen_crime)
 print(moran_queen_hoval)
 print(moran_queen_inc)
-
 ```
 
 Here are the summary statistics for the Queen neighbor graph:
@@ -138,7 +165,6 @@ reasonable given the map patterns seen above.
 ### Create an OLS Model for Crime
 
 ```{r}
-
 # Estimate an OLS model without lag
 ols_model <- lm(columbus$CRIME ~ columbus$INC + columbus$HOVAL)
 summary(ols_model)
@@ -176,7 +202,6 @@ be used to compare the differences between the OLS with lag and maximum likeliho
 estimation with lag.
 
 ```{r}
-
 # Create a new variable that contains the spatially lagged levels of crime for each zone
 wy <- lag(columbusnb_queen_W, columbus$CRIME)
 
@@ -230,7 +255,6 @@ coefficient estimates for the OLS with a lag.
 ### Create a Spatially Lagged Error Model for Crime
 
 ```{r}
-
 # Estimate a spatial error model
 error_model <- errorsarlm(columbus$CRIME ~
                             columbus$INC +

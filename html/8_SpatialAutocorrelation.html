@@ -391,27 +391,10 @@ summary {
 </div>
 
 
-<pre class="r"><code># Library to load shape file into a spatial object using readOGR.
-library(rgdal)
-
-# Library to automatically compute Moran&#39;s I using correlog.
+<pre class="r"><code>library(rgdal)
 library(pgirmess)
-
-# Library to:
-# - Create contiguity neighbor lists (poly2nb)
-# - Create neighbor weight lists (nb2listw)
-# - Compute the Moran&#39;s I statistic (moran.test)
-# - Estimate spatial lag models (lagsarlm)
-# - Perform Lagrange Multiplier tests (lm.LMtests)
 library(spdep)
-
-# Library to estimate spatial error models.
-library(spatialreg)
-
-# Library for data classification.
 library(classInt)
-
-# Library for color schemes.
 library(RColorBrewer)</code></pre>
 <p>This part will use the U.S. Census 2010 data on the Hispanic population in Salt Lake County, estimated at the census tract level of aggregation. The shape file is projected into U.T.M. Zone 12 coordinates (i.e. coordinates measured in meters). The shape file of census tracts will be loaded into a spatial object below.</p>
 <div id="loading-and-plotting" class="section level3">
